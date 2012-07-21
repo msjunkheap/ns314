@@ -1,0 +1,10 @@
+NS314 - Python DNS Server
+
+Requres Python 2.7
+
+To run, execute with the following command:
+python dns-daemon.py start
+
+The server binds to localhost:5300 by default.  This can be changed to port 53 and run as root, but it does not handle dropping privileges, and you really shouldn't be using this in any sort of production environment at this stage in its development anyway.
+
+ns314.tld.db - Example potential configuration zone file
