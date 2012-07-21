@@ -2,7 +2,7 @@
 
 import sys, time, socket, struct
 from daemon import Daemon
-from rrA import rrA
+import ns314modules
 
 # Open our log file to print for errors
 LOG = open('debug.log', 'w')
@@ -48,9 +48,9 @@ def log(*messages):
 
 def check_record(record, qtype):	# Check if we've got the record
 	# Send all responses back with localhost and a 5 minute TTL
-	default_answer = rrA(True, 'google.com.', 300, 'IN', (127, 0, 0, 1))
+	default_answer = rrA(True, 'ns314.com.', 300, 'IN', (127, 0, 0, 1))
 	#AUTHANS = True
-	#RECORD = 'google.com.'
+	#RECORD = 'ns314.com.'
 	#ANSWER = (127, 0, 0, 1)
 	#TTL = 300
 
@@ -79,7 +79,7 @@ def parse_request(input):
 	# Strip the header (12 bytes) from the request and slice it into separate variables using our struct pattern
 	ID, DATA1, DATA2, QDCT, ANCT, NSCT, ARCT = struct.unpack(HEADER_STRUCT, input[:12])	
 	BODY = input[12:]	# Put the rest of the request into its own variable
-	labels = []		# Create a list to store each section of the request name (mail, google, com)
+	labels = []		# Create a list to store each section of the request name (mail, ns314, com)
 	while ord(BODY[0]):		# While the first character of BODY is not an unsigned char of 0 denoting the end of the request string
 		length = ord(BODY[0])		# The length of our string is the first byte
 		label = BODY[1:length+1]	# Grab the rest of the string using our length
