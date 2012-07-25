@@ -1,0 +1,2 @@
+1. Account for duplicate objects in the final list to be sent back
+2. List all CNAMEs recursively?
