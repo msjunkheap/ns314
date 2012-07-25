@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-import sys, time, socket, struct
+import sys, time, socket, struct, md5
 from daemon import Daemon
-import ns314modules
+from ns314 import *
 
 # Open our log file to print for errors
 LOG = open('debug.log', 'w')
@@ -14,11 +14,18 @@ PORT = 5300
 # Create our struct format to separate the header into variables
 HEADER_STRUCT = '!HBBHHHH'
 
-# Define our record qtypes
+# Define our classes
+qclasses = {
+	1: 'IN',
+	3: 'CH',
+	255: '*'
+	}
+
+# Define our record types
 qtypes = {
 	1: 'A',
-#	2: 'NS',
-#	5: 'CNAME',
+	2: 'NS',
+	5: 'CNAME',
 #	6: 'SOA',
 #	12: 'PTR',
 #	15: 'MX',
@@ -39,27 +46,50 @@ qtypes = {
 #	255: '*'#,
 	}
 
-
 # Define our logging function to write messages to the error log
-def log(*messages):
-	LOG.write(' '.join([str(m) for m in messages]))
+def log(lists = None, dct = None):
+	if lists != None:
+		LOG.write(' '.join([int(l) for l in lists]))
+	if dct != None:
+		LOG.write(' '.join(dct.values()))
+	#LOG.write(' '.join([str(m) for m in messages]))
 	LOG.write('\n')
 	LOG.flush()
 
-def check_record(record, qtype):	# Check if we've got the record
-	# Send all responses back with localhost and a 5 minute TTL
-	default_answer = rrA(True, 'ns314.com.', 300, 'IN', (127, 0, 0, 1))
-	#AUTHANS = True
-	#RECORD = 'ns314.com.'
-	#ANSWER = (127, 0, 0, 1)
-	#TTL = 300
-
-	if qtypes.get(qtype, None) != None:		# Replace this with a case statement for different qtypes
-		if record == default_answer['rr']:
-			answer = default_answer		# Don't forget to account for multiple records here later
+def check_record(query_record, qtype, qclass):	# Check if we've got the record
+	def cname_recurse(iteration, ctype, cclass, req_record):
+		i += 1
+		if i <= 2:	# Iterate recursively up to 3 times to find the target of our CNAME, otherwise return None
+			c_answer = [ c_record_obj for c_record_obj in records if cclass == c_record_obj['qclass'] and req_record == c_record_obj['rr'] ]
+			if not c_answer:	# If we didn't find a record matching our cname target try again ########################################### add exception to make sure this won't succeed even if c_answer is empty
+				target = cname_recurse(iteration, qtype, qclass, req_record)
+			else:
+				target = c_answer
 		else:
-			answer = None
-	else:
+			target = None
+		return target
+
+#	def cname_check(check_obj):
+#		if check_obj['qclass'] == 1 and check_obj['qtype'] == 5:	# If the record is an IN CNAME, recurse
+#			ch_answer = cname_recurse(0, check_obj['qtype'], check_obj['qclass'], check_obj['labels'])
+
+	a_record = rr.A(True, 'ns314.com.', 300, 1, (127, 0, 0, 1))			# Example A record
+	cname_record = rr.CNAME(True, 'www.ns314.com.', 300, 1, 'ns314.com.')		# Example CNAME record
+
+	records = [a_record, cname_record]
+
+	answer = []	# Initialize our answer list so we can append at will
+	for record_obj in records:	# Check the records list to find our query.
+		#if qclasses.get(qclass) == record_obj['qclass'] and query_record == record_obj['rr']: # and qtype == record_obj['qtype']:
+		if qclass == record_obj['qclass'] and query_record == record_obj['rr']:	# ARCOUNT
+			if record_obj['qtype'] == 5:	# If we got a CNAME from our records iterate over the objects again to see if we have the target
+				cname_result = cname_recurse(0, record_obj['qtype'], record_obj['qclass'], query_record)
+				for cname_target in records:
+					
+			if qtype == record_obj['qtype']:
+				answer.append(record_obj)		# Add our record object to the stack or answers
+
+	if not answer:
 		answer = None
 	return answer
 
@@ -119,7 +149,8 @@ def parse_request(input):
 
 def build_response(request):
 	record = format_label(request['labels'], True)		# Convert our labels into standard DNS format before checking, e.g. example.com.
-	result = check_record(record, request['QTYPE'])	# Check to see if we have an answer
+	result = check_record(record, request['QTYPE'], request['QCLASS'])	# Check to see if we have an answer
+	log(dicts = result[0])
 	if result != None:			# Return the records here
 		aa = result['aa']		# Test if our answer is authoritative
 		answer = result['answer']	# IP address for our answer
