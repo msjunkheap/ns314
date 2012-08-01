@@ -48,7 +48,7 @@ qtypes = {
 
 # Define our logging function to write messages to the error log
 def log(lists = None, dct = None):
-    if lists != None:
+    if lists is not None:
         LOG.write(' '.join([int(l) for l in lists]))
     if dct != None:
         LOG.write(' '.join(dct.values()))
@@ -151,27 +151,29 @@ def parse_request(input):
         'NSCT': NSCT,        # Bytes 9-10
         'ARCT': ARCT,        # Bytes 11-12
         'labels': labels,    # Variable length
-        'QTYPE': QTYPE,        # A, CNAME, NS, etc.
-        'QCLASS': QCLASS    # IN (Internet), CH (Chaos), etc.
+        'QTYPE': QTYPE,      # A, CNAME, NS, etc.
+        'QCLASS': QCLASS     # IN (Internet), CH (Chaos), etc.
         }
 
 def build_response(request):
     record = format_label(request['labels'], True)        # Convert our labels into standard DNS format before checking, e.g. example.com.
     result = check_record(record, request['QTYPE'], request['QCLASS'])    # Check to see if we have an answer
-    log(dicts = result[0])
-    if result != None:            # Return the records here
-        aa = result['aa']        # Test if our answer is authoritative
+    #log(dicts = result[0])
+
+    response = [] # Build a list to put our request in
+    data1 = request['DATA1']         # Start off with what we were given as a template
+    #data1 = (data1 & 0xFE)          # Set recursion desired off for our response ((not necessary, can match what the client sent us))
+
+    if result != None:               # Return the records here
+        aa = result['aa']            # Test if our answer is authoritative
         answer = result['answer']    # IP address for our answer
-        ttl = result['ttl']        # TTL for our answer
-        ancount = 1            # Set the answer count to 1 since we're only returning one record
+        ttl = result['ttl']          # TTL for our answer
+        ancount = 1                  # Set the answer count to 1 since we're only returning one record
     else:
         # Handle the error if we receive no results
         aa = False
         ancount = 0
 
-    response = [] # Build a list to put our request in
-    data1 = request['DATA1']    # Start off with what we were given as a template
-    #data1 = (data1 & 0xFE)        # Set recursion desired off for our response ((not necessary, can match what the client sent us))
     data1 = (data1 | 0x80)        # Set answer as a response
     if aa:                # Check if our answer is authoritative
         data1 = (data1 | 0x04)    # Set our AA bit as authoritative
@@ -223,7 +225,7 @@ class MyDaemon(Daemon):
         while True:
             data, addr = sock.recvfrom( 512 )        # Save the packet data and client address
             request = parse_request(data)            # Parse the request to a list
-            log(request)                    # Log the request to our error log
+            #log(None, request)                    # Log the request to our error log
             packet = build_response(request)        # Create our response to send back
             #log(packet)                    # Log the request to our error log
             sock.sendto(packet, addr)            # Return our processed response back to the client
