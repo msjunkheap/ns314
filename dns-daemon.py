@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, time, socket, struct, md5
+import sys, time, socket, struct
 from daemon import Daemon
 from ns314 import *
 
@@ -68,26 +68,34 @@ def check_record(query_record, qtype, qclass):    # Check if we've got the recor
         else:
             target = None
         return target
+    # End cname_recurse function
 
-#    def cname_check(check_obj):
-#        if check_obj['qclass'] == 1 and check_obj['qtype'] == 5:    # If the record is an IN CNAME, recurse
-#            ch_answer = cname_recurse(0, check_obj['qtype'], check_obj['qclass'], check_obj['labels'])
+    def cname_check(check_obj):
+        if check_obj['qclass'] == 1 and check_obj['qtype'] == 5:    # If the record is an IN CNAME, recurse
+            check_answer = cname_recurse(0, check_obj['qtype'], check_obj['qclass'], check_obj['labels'])
+        if check_answer is None:         # If we received no results by checking the cname against our cache return the CNAME
+            check_answer = check_obj
+        return check_answer
+    # End cname_check function
 
+    # We're going to cheat by adding records into a list statically. We'll make this pull from a sqlite DB later
     a_record = rr.A(True, 'ns314.com.', 300, 1, (127, 0, 0, 1))            # Example A record
-    cname_record = rr.CNAME(True, 'www.ns314.com.', 300, 1, 'ns314.com.')        # Example CNAME record
-
+    cname_record = rr.CNAME(True, 'www.ns314.com.', 300, 1, 'ns314.com.')        # Example CNAME record (might consider making this a list of labels)
     records = [a_record, cname_record]
 
-    answer = []    # Initialize our answer list so we can append at will
-    for record_obj in records:    # Check the records list to find our query.
-        #if qclasses.get(qclass) == record_obj['qclass'] and query_record == record_obj['rr']: # and qtype == record_obj['qtype']:
-        if qclass == record_obj['qclass'] and query_record == record_obj['rr']:    # ARCOUNT
-            if record_obj['qtype'] == 5:    # If we got a CNAME from our records iterate over the objects again to see if we have the target
-                cname_result = cname_recurse(0, record_obj['qtype'], record_obj['qclass'], query_record)
-                for cname_target in records:
-                    
-            if qtype == record_obj['qtype']:
-                answer.append(record_obj)        # Add our record object to the stack or answers
+    # Let's test to see how difficult it would be to make this list in the same format as the cname search function
+    answer = [ cname_check(record_obj) for record_obj in records if qclass == record_obj['qclass'] and query_record == record_obj['rr'] ]
+
+#    answer = []    # Initialize our answer list so we can append answer objects at will
+#    for record_obj in records:    # Check the records list to find our query.
+#        #if qclasses.get(qclass) == record_obj['qclass'] and query_record == record_obj['rr']: # and qtype == record_obj['qtype']:
+#        if qclass == record_obj['qclass'] and query_record == record_obj['rr']:    # ARCOUNT
+#            if record_obj['qtype'] == 5:    # If we got a CNAME from our records iterate over the objects again to see if we have the target
+#                cname_result = cname_recurse(0, record_obj['qtype'], record_obj['qclass'], query_record)
+#                for cname_target in records:
+#                    
+#            if qtype == record_obj['qtype']:
+#                answer.append(record_obj)        # Add our record object to the stack or answers
 
     if not answer:
         answer = None
